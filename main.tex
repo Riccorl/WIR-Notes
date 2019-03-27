@@ -7,7 +7,7 @@
 \usepackage{float}
 \usepackage{setspace}% http://ctan.org/pkg/setspace
 \usepackage[utf8x]{inputenc}
-% Utility per scrivere singole parole come codice
+% Inline code utility
 \newcommand{\code}[1]{\texttt{#1}}
 \usepackage{listings}
 \usepackage{color}
@@ -944,7 +944,7 @@ Given a query $q$ we create a set $A$ as follows: we take the union of the champ
 In many search engines, we have available a measure of quality $g(d) \in [0, 1]$ for each document $d$ that is query-independent and thus \textbf{static}.
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.40]{sect7/figure_7_2.png}
+    \includegraphics[scale=0.45]{sect7/figure_7_2.png}
     \caption{A static quality-ordered index. In this example we assume that Doc1, Doc2 and Doc3 respectively have static quality scores $g(1) = 0.25$, $g(2) = 0.5$, $g(3) = 1$.}
 \end{figure}
 
@@ -968,21 +968,64 @@ The idea is to order the documents $d$ in the postings list of term $t$ by decre
 \end{enumerate}
 
 \paragraph{Cluster pruning}
+In \textbf{cluster pruning} we have a preprocessing step during which we cluster the document vectors. Then at query time, we consider only documents in a small number of clusters as candidates for which we compute cosine scores. The preprocessing step is as follows:
+\begin{enumerate}
+    \item Pick $\sqrt{N}$ documents at random from the collection. Call these \textbf{leaders}.
+    \item For each document that is not a leader, we compute its nearest leader.
+\end{enumerate}
+ We refer to documents that are not leaders as \textbf{followers}. The expected number of followers for each leader is $\approx N/\sqrt{N} = \sqrt{N}$. Next, the query processing proceeds as follows:
+ \begin{enumerate}
+    \item Given a query $q$, find the leader $L$ that is closest to $q$. This entails computing cosine similarities from $q$ to each of the $\sqrt{N}$ leaders.
+    \item The candidate set $A$ consists of $L$ together with its followers. We compute the cosine scores for all documents in this candidate set.
+\end{enumerate}
 
+Variations of cluster pruning introduce additional parameters $b_1$ and $b_2$, both of which are positive integers. In the pre-processing step we attach each follower to its $b_1$ closest leaders. At query time we consider the $b_2$ leaders closest to the query $q$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.60]{sect7/figure_7_3.png}
+    \caption{Cluster pruning.}
+\end{figure}
 
+\subsection{Components of an information retrieval system}
+In this section we combine the ideas developed so far to describe a rudimentary search system that retrieves and scores documents.
 
+\paragraph{Tiered indexes}
+Heuristics such as index elimination for inexact top-$K$ retrieval, we may occasionally find ourselves with a set $A$ of contenders that has fewer than $K$ documents. A common solution to this issue is the user of \textbf{tiered indexes}. In this example we set a tf threshold of 20 for tier 1 and 10 for tier 2, meaning that the tier 1 index only has postings entries with tf values exceeding 20, while the tier 2 index only has postings entries with tf values exceeding 10.
 
+\paragraph{Query-term proximity}
+Especially for free text queries, users prefer a document in which most or all of the query terms appear close to each other. Consider a query with two or more query terms, $t_1, t_2, \dots , t_k$. Let $\omega$ be the width of the smallest window in a document $d$ that contains all the query terms, measured in the number of words in the window. For instance, \code{The quality of mercy is not strained}, the smallest window for the query \code{strained mercy} would be 4. The smaller that $\omega$ is, the better that $d$ matches the query. In cases where the document does not contain all of the query terms, we can set $\omega$ to be some enormous number. Such proximity-weighted scoring functions are a departure from pure cosine similarity and closer to the \textit{soft conjunctive} semantics.
 
+How can we design such a proximity-weighted scoring function to depend on $\omega$? The simplest answer relies on a \textit{hand coding} technique. In a more scalable approach, we treat the integer $\omega$ as yet another feature in the scoring function, whose importance is assigned by machine learning.
 
+\paragraph{Designing parsing and scoring functions}
+Common search interfaces tend to mask query operators from the end user. The intent is to hide the complexity of these operators from the largely non-technical audience, inviting \textbf{free text queries}. How should a search equipped with indexes for various retrieval operators treat a query such as \code{rising interest rates}? Typically, a \textbf{query}
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.60]{sect7/figure_7_4.png}
+    \caption{Tiered indexes. If we fail to get $K$ results from tier 1, query processing
+“falls back” to tier 2, and so on. Within each tier, postings are ordered by document ID.}
+\end{figure}
+\noindent
+\textbf{parser} is used to translate the user-specified keywords into a query with various operators that is executed against the underlying indexes. Sometimes, this execution can entail multiple queries against the underlying indexes; for example, the query parser may issue a stream of queries:
+\begin{enumerate}
+    \item Run the user-generated query string as a phrase query. Rank them by vector space scoring using as query the vector consisting of the 3 terms \code{rising interest rates}.
+    \item If fewer than ten documents contain the phrase \code{rising interest rates}, run the two 2-term phrase queries \code{rising interest} and \code{interest rates}; rank these using vector space scoring.
+    \item If we still have fewer than ten results, run the vector space query consisting of the three individual query terms.
+\end{enumerate}
+Each of these steps may yield a list of scored documents, for each of which we compute a score. This score must combine contributions from vector space scoring, static quality, proximity weighting and potentially other factors. This demands an aggregate scoring function that \textbf{accumulates evidence} of a document’s relevance from multiple sources. 
 
+\paragraph{Putting it all together}
+In \ref{Complete-scheme}, documents stream in from the left for parsing and linguistic processing (language and format detection, tokenization and stemming). The resulting stream of tokens feeds into two modules. First, we retain a copy of each parsed document in a document cache. A second copy of the tokens is fed to a bank of indexers that create a bank of indexes including zone and field indexes that store the metadata for each document, (tiered) positional indexes, indexes for spelling correction and other tolerant retrieval, and structures for accelerating inexact top-$K$ retrieval. A free text user query (top center) is sent down to the indexes both directly and through a module for generating spelling-correction candidates. Retrieved documents (dark arrow) are passed to a scoring module that computes scores based on machine-learned ranking (MLR). Finally, these ranked documents are rendered as a results page.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.65]{sect7/figure_7_5.png}
+    \caption{A complete search system. Data paths are shown primarily for a free text query.}
+    \label{Complete-scheme}
+\end{figure}
 
+\subsection{Vector space scoring and query operator interaction}
 
-
-
-
-
-
-
+Vector space scoring supports so-called free text retrieval, in which a query is specified as a set of words without any query operators connecting them. It allows documents matching the query to be scored and thus ranked, unlike the Boolean, wildcard and phrase queries. The interpretation of such free text queries was that at least one of the query terms be present in any retrieved document. However more recently, web search engines such as Google have popularized the notion that a set of terms typed into their query boxes carries the semantics of a conjunctive query that only retrieves documents containing all or most query terms.
 
 
 %++++++++++++++++++++++++++++++++++++++++
