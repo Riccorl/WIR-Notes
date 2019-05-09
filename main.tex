@@ -1027,6 +1027,156 @@ In \ref{Complete-scheme}, documents stream in from the left for parsing and ling
 
 Vector space scoring supports so-called free text retrieval, in which a query is specified as a set of words without any query operators connecting them. It allows documents matching the query to be scored and thus ranked, unlike the Boolean, wildcard and phrase queries. The interpretation of such free text queries was that at least one of the query terms be present in any retrieved document. However more recently, web search engines such as Google have popularized the notion that a set of terms typed into their query boxes carries the semantics of a conjunctive query that only retrieves documents containing all or most query terms.
 
+\section{Evaluation in information retrieval}
+\subsection{Information retrieval system evaluation}
+To measure ad hoc information retrieval effectiveness in the standard way, we need a test collection consisting of three things:
+\begin{enumerate}
+    \item A document collection
+    \item A test suite of information needs, expressible as queries
+    \item A set of relevance judgments, standardly a binary assessment of either \textit{relevant} or \textit{nonrelevant} for each query-document pair.
+\end{enumerate}
+The standard approach to information retrieval system evaluation revolves around the notion of \textbf{relevant} and \textbf{nonrelevant} documents. With respect to a
+user information need, a document in the test collection is given a \textbf{binary classification} as either relevant or nonrelevant. This decision is referred to as the \textbf{ground truth} judgment of relevance. The test document collection needs have to be of a reasonable size: 50 information needs has usually been found to be a sufficient minimum.
+
+Relevance is assessed relative to an information need, not a query. For example, an information need might be:
+\medskip\\
+\indent Information on whether drinking red wine is more effective at reducing your risk of heart attacks than white wine.
+\medskip\\
+This might be translated into a query such as:
+\medskip\\
+\indent wine \code{AND} red \code{AND} white \code{AND} heart \code{AND} attack \code{AND} effective
+\medskip\\
+A document is relevant if it addresses the stated information need, not because it just happens to contain all the words in the query. To evaluate a system, we require an expression of an information need, which can be used for judging returned documents.
+
+Many systems contain various weights (parameters) that can be adjusted to tune system performance. It is wrong to report results on a test collection which were obtained by tuning these parameters to maximize performance on that collection. The correct procedure is to have one or more \textbf{development test collections}, and to tune the parameters on the development test collection.
+
+\subsection{Standard test collections}
+Here is a list of the most standard test collections and evaluation series.
+\begin{itemize}
+    \item The \textit{Cranfield} collection.
+    \item \textit{Text Retrieval Conference} (TREC).
+    \item \textit{NII Test Collections for IR Systems} (NTCIR).
+    \item \textit{Cross Language Evaluation Forum} (CLEF).
+    \item \textit{Reuters-21578} and \textit{Reuters-RCV1}.
+    \item \textit{20 Newsgroups}.
+\end{itemize}
+
+\subsection{Evaluation of unranked retrieval sets}
+The two most frequent and basic measures for information retrieval effectiveness are precision and recall.
+
+\textbf{Precision} (P) is the fraction of retrieved documents that are relevant
+\[
+\textrm{Precision} = \frac{\textrm{\#(relevant items retrieved)}}{\textrm{\#(retrieved items)}} = P(\textrm{relevant|retrieved})
+\]
+
+\textbf{Recall} (R) is the fraction of relevant documents that are retrieved
+\[
+\textrm{Recall} = \frac{\textrm{\#(relevant items retrieved)}}{\textrm{\#(relevant items)}} = P(\textrm{retrieved|relevant})
+\]
+These notions can be summerized in the following table:
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+              & Relevant             & Nonrelevant          \\ \hline
+Retrieved     & true positives (tp)  & false positives (fp) \\ \hline
+Non retrieved & false negatives (fn) & true negatives (tn)  \\ \hline
+\end{tabular}
+\end{table}
+Then:
+\begin{equation}
+\begin{split}
+    P = tp / (tp + fp) \\
+    R = tp / (tp + fn)    
+\end{split}
+\end{equation}
+
+An alternative is \textbf{accuracy}, the fraction of the classifications that are correct: 
+\[
+accuracy = (tp + tn)/(tp + fp + fn + tn).
+\]
+There is a good reason why accuracy is not an appropriate measure for information retrieval problems. In almost all circumstances, the data is extremely skewed: normally over 99.9\% of the documents are in the nonrelevant category. A system tuned to maximize accuracy can appear to perform well by simply deeming all documents nonrelevant to all queries. Even if the system is quite good, trying to label some documents as relevant will almost always lead to a high rate of false positives. The measures of precision and recall concentrate the evaluation on the return of true positives, asking what percentage of the relevant documents have been found and how many false positives have also been returned.
+
+The advantage of having the two numbers for precision and recall is that one is more important than the other in many circumstances. For example, web surfers would like every result on the first page to be relevant (high precision). The two quantities trade off against one another: you can always get a recall of 1 (but very low precision) by retrieving all documents for all queries. On the other hand, in a good system, precision usually decreases as the number of documents retrieved is increased. In general we want to get some amount of recall while tolerating only a certain percentage of false positives.
+
+A single measure that trades off precision versus recall is the \textbf{F measure}, which is the weighted harmonic mean of precision and recall:
+\[
+\textrm{F} = \frac{1}{\alpha \frac{1}{P} + (1 - \alpha) \frac{1}{R}} = \frac{(\beta^2 + 1)PR}{\beta^2P + R} \quad \textrm{where} \quad \beta^2 = \frac{1 - \alpha}{\alpha}
+\]
+where $\alpha \in [0,1]$ and thus $\beta \in [0, \infty]$. The default\textbf{ balanced F measure} equally weights precision and recall, which means making $\alpha = 1/2$ or $\beta = 1$. It is commonly written as $F_1$. When using $\beta = 1$, the formula simplifies to:
+\[
+F_{\beta=1} = \frac{2PR}{P + R}
+\]
+Values of $\beta < 1$ emphasize precision, while values of $\beta > 1$ emphasize recall.
+
+\subsection{Evaluation of ranked retrieval results}
+Precision, recall, and the F measure are set-based measures. They are computed using unordered sets of documents. We need to extend these measures if we are to evaluate the ranked retrieval results. In a ranked retrieval context, appropriate sets of retrieved documents are naturally given by the top $k$ retrieved documents. For each such set, precision and recall values can be plotted to give a \textbf{precision-recall curve}:
+if the $(k + 1)^{th}$ document retrieved is nonrelevant then recall is the same as for the top k documents, but precision has dropped. If it is relevant, then both precision and recall increase, and the curve jags up and to the right.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.55]{sect8/figure_8_2.png}
+    \caption{Precision/recall graph}
+\end{figure}
+It is often useful to remove these jiggles and the standard way to do this is with an interpolated precision: the \textbf{interpolated precision} $p_{interp}$ at a certain recall level $r$ is defined as the highest precision found for any recall level $r' \geq r$:
+\[
+p_{interp}(r) = \max_{r' \geq r}p(r') 
+\]
+The justification is that almost anyone would be prepared to look at a few more documents if it would increase the percentage of the viewed set that were relevant.
+
+Examining the entire precision-recall curve is very informative, but there is often a desire to reduce this information down to a few numbers. The traditional way of doing this is the \textbf{11-point interpolated average precision}. For each information need, the interpolated precision is measured at the 11 recall levels of 0.0, 0.1, 0.2,..., 1.0. For each recall level, we then calculate the arithmetic mean of the interpolated precision at that recall level for each information need in the test collection.
+
+Other measures have become more common. Most standard among the TREC community is \textbf{Mean Average Precision} (\textbf{MAP}). For a single information need, Average Precision is the average of the precision value obtained for the set of top $k$ documents existing after each relevant document is retrieved. If the set of relevant documents for an information need $q_j \in Q \textrm{is} {d_1,\dots,d_{mj}}$ and $R_{jk}$ is the set of ranked retrieval results from the top result until you get to document $d_k$, then
+\[
+\textrm{MAP($Q$)} = \frac{1}{|Q|} \sum_{j = 1}^{|Q|}{\frac{1}{m_j}} \sum_{k = 1}^{m_j}{\textrm{Precision}(R_{jk})}
+\]
+When a relevant document is not retrieved at all, the precision value in the above equation is taken to be 0.
+Using MAP, fixed recall levels are not chosen, and there is no interpolation. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.55]{sect8/figure_8_3.png}
+    \caption{Averaged 11-point precision/recall graph across 50 queries for a representative TREC system. The Mean Average Precision for this system is 0.2553.}
+\end{figure}
+
+The above measures factor in precision at all recall levels. For many prominent applications, particularly web search, this may not be relevant to users. What matters is rather how many good results there are on the first page or the first three pages. This leads to measuring precision at fixed low levels of retrieved results, such as 10 or 30 documents. This is referred to as \textbf{Precision at $k$}. It has the advantage of not requiring any estimate of the size of the set of relevant documents but the disadvantages that it is the least stable of the commonly used evaluation measures.
+
+An alternative, is \textbf{$R$-precision}. It requires having a set of known relevant documents $Rel$, from which we calculate the precision of the top $Rel$ documents returned. $R$-precision adjusts for the size of the set of relevant documents. A perfect system could score 1 on this metric for each query, whereas, even a perfect system could only achieve a precision at 20 of 0.4 if there were only 8 documents in the collection relevant to an information need. If there are $|Rel|$ relevant documents for a query, we examine the top $|Rel|$ results of a system, and find that $r$ are relevant, then by definition, not only is the precision $r/|Rel|$, but the recall of this result set is also $r/|Rel|$. Like Precision at $k$, $R$-precision describes only one point on the precision-recall curve. $R$-precision turns out to be highly correlated with MAP empirically.
+
+Another concept sometimes used in evaluation is an \textbf{ROC curve} (Receiver Operating Characteristics). An ROC curve plots the true positive rate or sensitivity (recall) against the false positive rate or (1 − specificity). The false positive rate is given by $fp / (fp + tn)$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.55]{sect8/figure_8_4.png}
+    \caption{The ROC curve corresponding to the precision-recall curve in Figure 32.}
+\end{figure}
+
+A final approach is measures of \textbf{cumulative gain}, and in particular \textbf{normalized discounted cumulative gain} (NDCG). NDCG is designed for situations of non-binary notions of relevance. Like precision at $k$, it is evaluated over some number $k$ of top search results. % For a set of queries $Q$, let $R(j, d)$ be the relevance score assessors gave to document $d$ for query $j$. Then,
+
+\subsection{Assessing relevance}
+To properly evaluate a system, your test information needs must be germane to the documents in the test document collection, and appropriate for predicted usage of the system. Given information needs and documents, you need to collect relevance assessments. This is a time-consuming and expensive process involving human beings. For large modern collections, it is usual for relevance to be assessed only for a subset of the documents for each query. The most standard approach is \textbf{pooling}, where relevance is assessed over a subset of the collection that is formed from the top $k$ documents returned by a number of different IR systems.
+
+A human is not a device that reliably reports a gold standard judgment of relevance, humans and their relevance judgments are quite idiosyncratic and variable. The success of an IR system depends on how good it is at satisfying the needs of humans.
+
+In the social sciences, a common measure for agreement between judges is the \textbf{kappa statistic}. It is designed for categorical judgments and corrects a simple agreement rate for the rate of chance agreement.
+\[
+kappa = \frac{P(A) - P(E)}{1 - P(E)}
+\]
+where $P(A)$ is the proportion of the times the judges agreed, and $P(E)$ is the proportion of the times they would be expected to agree by chance. The kappa value will be 1 if two judges always agree, 0 if they agree only at the rate given by chance, and negative if they are worse than random. If there are more than two judges, it is normal to calculate an average pairwise kappa value.
+
+\paragraph{Critiques and justifications of the concept of relevance}
+Once we have a formal measure that we have confidence in, we can proceed to optimize effectiveness by machine learning methods.
+
+Assessments are binary. Relevance of a document to an information need is treated as an absolute, objective decision. But judgments of relevance are subjective, varying across people. Human assessors are also imperfect measuring instruments, susceptible to failures of understanding and attention. We also have to assume that users’ information needs do not change as they start looking at retrieval results. Any results based on one collection are heavily skewed by the choice of collection, queries, and relevance judgment set: the results may not translate from one domain to another or to a different user population.
+
+One clear problem with the relevance-based assessment is the distinction between relevance and \textbf{marginal relevance}: whether a document still has distinctive usefulness after the user has looked at certain other documents. Even if a document is highly relevant, its information can be completely redundant with other documents which have already been examined. Maximizing marginal relevance requires returning documents that exhibit diversity and novelty.
+
+\section{Relevance feedback and query expansion}
+
+
+
+
+
+
+
+
 
 %++++++++++++++++++++++++++++++++++++++++
 % References section will be created automatically 
